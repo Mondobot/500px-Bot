@@ -224,106 +224,104 @@ def removeUserFromIgnoredList(targetUserName):
     with open(ignoredFilePath, 'w') as f:
         f.write(json.dumps(ignoredFollowList))
 
-# Retrieving the list of currently pending followed users by the bot.
+def main()
+    # Retrieving the list of currently pending followed users by the bot.
+    retrieveLists()
 
-retrieveLists()
+    # Time to remove anyone in any list for more than a week.
 
-# Time to remove anyone in any list for more than a week.
-
-currentTime = time.time()
-for i, v in enumerate(list(acceptedFollowList)):
-    if currentTime - v['time_followed'] > 604800:
-        continue
-    acceptedFollowList.remove(v)
-    with open(acceptedFilePath, 'w') as f:
-        f.write(json.dumps(acceptedFollowList))
-
-for i, v in enumerate(list(ignoredFollowList)):
-    if currentTime - v['time_followed'] > 604800:
-        continue
-    ignoredFollowList.remove(v)
-    with open(ignoredFilePath, 'w') as f:
-        f.write(json.dumps(ignoredFollowList))
-
-# This is used in order to obtain the authenticity token required for logging in.
-
-loginPage = requestWebPage('GET', 'https://500px.com/login')
-printToLog('Retrieved login page.')
-time.sleep(20)
-
-loginPage_soup = BeautifulSoup(loginPage.text, 'html.parser')
-loginParams['authenticity_token'] = loginPage_soup.find('meta', {'name': 'csrf-token'}).get('content')
-csrfHeaders['X-CSRF-Token'] = loginParams['authenticity_token']
-
-# This is the actual login request.
-
-userLogin = requestWebPage('POST', 'https://api.500px.com/v1/session', data = loginParams)
-printToLog('Logged in successfully.')
-time.sleep(20)
-
-# Getting my user info from login response.
-
-myUserInfo = json.loads(userLogin.text)['user']
-
-# Time to see who has actually bothered following us.
-
-pendingUserNames = [pendingFollowUser['name'] for pendingFollowUser in pendingFollowList]
-
-followers = getFollowers()
-printToLog('Obtained a list of followers.')
-following = getFollowing()
-printToLog('Obtained a list of people we\'re following.')
-
-for followingUser in following:
-    if followingUser['username'] in pendingUserNames:
-        continue
-    if any(follower['username'] == followingUser['username'] for follower in followers):
-        continue
-    unfollowUser(followingUser['username'])
-    addUserToIgnoredList(followingUser['username'])
-    printToLog(followingUser['username'] + ' isn\'t following you and isn\'t pending. Ignored and unfollowed.')
-printToLog('Finished comparing followers against following.')
-
-for follower in list(followers):
     currentTime = time.time()
-    if not follower['username'] in pendingUserNames:
-        followers.remove(follower)
-        continue
-    removeUserFromPendingList(follower['username'])
-    addUserToAcceptedList(follower['username'])
-    printToLog(follower['username'] + ' followed you. Accepted.')
-    pendingUserNames.remove(follower['username'])
-    followers.remove(follower)
+    for i, v in enumerate(list(acceptedFollowList)):
+        if currentTime - v['time_followed'] > 604800:
+            continue
+        acceptedFollowList.remove(v)
+        with open(acceptedFilePath, 'w') as f:
+            f.write(json.dumps(acceptedFollowList))
 
-for follower in list(pendingFollowList):
-    currentTime = time.time()
-    if currentTime - follower['time_followed'] <= 172800:
-        continue
-    removeUserFromPendingList(follower['name'])
-    unfollowUser(follower['name'])
-    addUserToIgnoredList(follower['name'])
-    pendingUserNames.remove(follower['name'])
-    printToLog(follower['name'] + ' didn\'t follow you. Ignored and unfollowed.')
+    for i, v in enumerate(list(ignoredFollowList)):
+        if currentTime - v['time_followed'] > 604800:
+            continue
+        ignoredFollowList.remove(v)
+        with open(ignoredFilePath, 'w') as f:
+            f.write(json.dumps(ignoredFollowList))
 
-printToLog('Review of followed users finished.')
-
-# Time to view the up-and-coming and follow more people :)
-
-pageNum = 1 # Do not change.
-numFollowsWanted = 101 # 101 is the daily limit for follows, and any more than this fails. Don't increase.
-numFollowsDone = 0 # Do not change.
-
-while numFollowsDone < numFollowsWanted:
-    upcomingPage = requestWebPage('GET', 'https://api.500px.com/v1/photos?feature=upcoming&include_states=false&page=' + str(pageNum) + '&rpp=50', headers = csrfHeaders)
-    upcomingPage_json = json.loads(upcomingPage.text)
-    for upcomingPhoto in upcomingPage_json['photos']:
-        userName = upcomingPhoto['user']['username']
-        if numFollowsDone == numFollowsWanted:
-            break
-        if not isUserPending(userName) and not isUserAccepted(userName) and not isUserIgnored(userName):
-            followUser(userName)
-        else:
-            printToLog('Skipping ' + userName + '.')
-    pageNum += 1
+    # This is used in order to obtain the authenticity token required for logging in.
+    loginPage = requestWebPage('GET', 'https://500px.com/login')
+    printToLog('Retrieved login page.')
     time.sleep(20)
-printToLog('Finished. No more users left to follow.')
+
+    loginPage_soup = BeautifulSoup(loginPage.text, 'html.parser')
+    loginParams['authenticity_token'] = loginPage_soup.find('meta', {'name': 'csrf-token'}).get('content')
+    csrfHeaders['X-CSRF-Token'] = loginParams['authenticity_token']
+
+    # This is the actual login request.
+    userLogin = requestWebPage('POST', 'https://api.500px.com/v1/session', data = loginParams)
+    printToLog('Logged in successfully.')
+    time.sleep(20)
+
+    # Getting my user info from login response.
+    myUserInfo = json.loads(userLogin.text)['user']
+
+    # Time to see who has actually bothered following us.
+    pendingUserNames = [pendingFollowUser['name'] for pendingFollowUser in pendingFollowList]
+
+    followers = getFollowers()
+    printToLog('Obtained a list of followers.')
+    following = getFollowing()
+    printToLog('Obtained a list of people we\'re following.')
+
+    for followingUser in following:
+        if followingUser['username'] in pendingUserNames:
+            continue
+        if any(follower['username'] == followingUser['username'] for follower in followers):
+            continue
+        unfollowUser(followingUser['username'])
+        addUserToIgnoredList(followingUser['username'])
+        printToLog(followingUser['username'] + ' isn\'t following you and isn\'t pending. Ignored and unfollowed.')
+    printToLog('Finished comparing followers against following.')
+
+    for follower in list(followers):
+        currentTime = time.time()
+        if not follower['username'] in pendingUserNames:
+            followers.remove(follower)
+            continue
+        removeUserFromPendingList(follower['username'])
+        addUserToAcceptedList(follower['username'])
+        printToLog(follower['username'] + ' followed you. Accepted.')
+        pendingUserNames.remove(follower['username'])
+        followers.remove(follower)
+
+    for follower in list(pendingFollowList):
+        currentTime = time.time()
+        if currentTime - follower['time_followed'] <= 172800:
+            continue
+        removeUserFromPendingList(follower['name'])
+        unfollowUser(follower['name'])
+        addUserToIgnoredList(follower['name'])
+        pendingUserNames.remove(follower['name'])
+        printToLog(follower['name'] + ' didn\'t follow you. Ignored and unfollowed.')
+
+    printToLog('Review of followed users finished.')
+
+    # Time to view the up-and-coming and follow more people :)
+    pageNum = 1 # Do not change.
+    numFollowsWanted = 101 # 101 is the daily limit for follows, and any more than this fails. Don't increase.
+    numFollowsDone = 0 # Do not change.
+
+    while numFollowsDone < numFollowsWanted:
+        upcomingPage = requestWebPage('GET', 'https://api.500px.com/v1/photos?feature=upcoming&include_states=false&page=' + str(pageNum) + '&rpp=50', headers = csrfHeaders)
+        upcomingPage_json = json.loads(upcomingPage.text)
+        for upcomingPhoto in upcomingPage_json['photos']:
+            userName = upcomingPhoto['user']['username']
+            if numFollowsDone == numFollowsWanted:
+                break
+            if not isUserPending(userName) and not isUserAccepted(userName) and not isUserIgnored(userName):
+                followUser(userName)
+            else:
+                printToLog('Skipping ' + userName + '.')
+        pageNum += 1
+        time.sleep(20)
+    printToLog('Finished. No more users left to follow.')
+
+if __name__ == "__main__":
+        main()
