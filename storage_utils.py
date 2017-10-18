@@ -1,36 +1,18 @@
 #!/usr/bin/env python
 
 from __future__ import print_function
-
 import json
 from collections import namedtuple
-
 from pprint import pprint
 from googleapiclient import discovery
-
 import httplib2
 import os
-
 from apiclient import discovery
 from oauth2client import client
 from oauth2client import tools
 from oauth2client.file import Storage
 
-class StorageManager(object):
-    def __init__(self, config):
-        self.__config = config
-        pass
-
-    def getConfig(self):
-        return self.__config
-
-    def load(self):
-        print("Saving values for StorageUtils is not implemented")
-
-    def save(self):
-        print("Saving values for StorageUtils is not implemented")
-        pass
-
+from storage_manager import StorageManager
 
 class GoogleDriveStorageManager(StorageManager):
     def __init__(self, config):
@@ -90,29 +72,17 @@ class GoogleDriveStorageManager(StorageManager):
         request = self.__service.spreadsheets().create(body=spreadsheet_body)
         response = request.execute()
 
+
         print("Created data spreadsheed at %s" % response['spreadsheetUrl'])
 
         return response['spreadsheetId']
 
     def __get_raw_values(self, service, spreadsheet_id):
-        result = self.__service.spreadsheets().values().get(
-            spreadsheetId=spreadsheet_id, range="Sheet1").execute()
+        result = service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id, range='Sheet1!A2:C').execute()
         values = result.get('values', [])
 
         return values
-
-    def __parse_values(self, values):
-        pending_follow = []
-        blacklisted_follow = []
-
-        for row in values:
-            if row[4] == "pending":
-                pending_follow.append(row[0])
-
-            else:
-                blacklisted_follow.append(row[0])
-
-        return (pending_follow, blacklisted_follow)
 
     def load(self):
         values = []
@@ -122,25 +92,25 @@ class GoogleDriveStorageManager(StorageManager):
             self.__config = self.__config._replace(spreadsheet_id=new_spreadsheet_id)
 
         else:
-            values = self.__get_raw_values(self.__config.spreadsheet_id, self.__service)
+            values = self.__get_raw_values(self.__service, self.__config.spreadsheet_id)
 
-        return self.__parse_values(values)
+        return values
 
-    def save(self, pending_follow, blacklisted_follow):
+    def save(self, items):
         values = []
-
-        for follower in pending_follow:
-            values.append([follower, int(time.time()), "pending"])
-
-        for follower in blacklisted_follow:
-            values.append([follower, int(time.time()), "blacklisted"])
+        values.extend(items)
 
         body = {
             "values" : values
         }
 
+        #Clear the spreadsheet
+        result = self.__service.spreadsheets().values().clear(
+            spreadsheetId=self.__config.spreadsheet_id, body={},
+            range="Sheet1!A:ZZ").execute()
+
         result = self.__service.spreadsheets().values().append(
-            spredsheetId=self.__config.spredsheetId, range="Sheet1",
+            spreadsheetId=self.__config.spreadsheet_id, range="Sheet1!A:ZZ",
             valueInputOption="RAW", body=body).execute()
 
 class FileStorageManager(StorageManager):
@@ -170,80 +140,9 @@ class FileStorageManager(StorageManager):
         file.write(self.__to_json())
         file.close()
 
-
-class GoogleDriveConfig(FileStorageManager):
-    def __init__(self, config):
-        super(GoogleDriveConfig, self).__init__(config)
-
-    def __get_name(self):
-        return "Google Drive Configuration"
-
-    def load(self):
-        print("Reading %s from file %s" % (self.__get_name(), str(self.path)))
-        super(GoogleDriveConfig, self).load()
-
-    def save(self):
-        print("Writing %s to file %s" % (self.__get_name(), str(self.path)))
-        super(GoogleDriveConfig, self).save()
-
-
-class FileConfig(FileStorageManager):
-    def __init__(self, config):
-        super(FileConfig, self).__init__(config)
-
-    def __get_name(self):
-        return "File Configuration"
-
-    def load(self):
-        print("Reading %s from file %s" % (self.__get_name(), str(self.path)))
-        super(FileConfig, self).load()
-
-    def save(self):
-        print("Writing %s to file %s" % (self.__get_name(), str(self.path)))
-        super(FileConfig, self).save()
-
 class StorageManagerFactory:
-    def __init__(self):
-        pass
-
-    def construct(self, config):
-        if (config.type == "gdrive"):
+    def construct(self, config, manager_type):
+        if (manager_type == "gdrive"):
             return GoogleDriveStorageUtils(config)
 
-        return []
-
-class Conf:
-    def __init__(self):
-        self.path = "gdrive.conf"
-
-
-
-
-def main():
-    #storage_manager = StorageManagerFactory().construct(config)
-    conf = Conf()
-    x = GoogleDriveConfig(conf)
-
-    #x.data.ceva = "hehehe"
-    #x.save()
-    x.load()
-
-    print(x.data)
-
-    gdrive_storage = GoogleDriveStorageManager(x.data)
-    print(gdrive_storage.load())
-    print(gdrive_storage.getConfig())
-
-    x.data = gdrive_storage.getConfig()
-    x.save()
-    """
-    q = ["ceva", "altceva", "hehehe"]
-    x.data = x.data._replace(blacklisted=q)
-
-    print(x.data)
-    
-    x.save()
-    """
-
-if __name__ == '__main__':
-    main()
+        return FileStorageManager(config)
